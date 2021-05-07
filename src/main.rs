@@ -1,70 +1,61 @@
+mod point;
+
 use image::{DynamicImage, GenericImageView, ImageBuffer};
-use std::ops::{Index, IndexMut};
 
 extern crate image;
 
 fn load() -> DynamicImage {
-    image::open("./data/koala.gif").unwrap()
+    image::open("./data/test.tiff").unwrap()
 }
 
-type Point<T> = [T; 2];
-
-fn map_point<T, F: Fn(usize) -> T>(f: F) -> Point<T> {
-    return [f(0), f(1)];
-}
+//type Point<T> = [T; 2];
 
 fn main() {
     let ref_img = load();
     let dim = ref_img.dimensions();
 
-    let arguments: [[Point<f64>; 2]; 2] = [
-        /*
-        [[0., 0.], [0., 0.]],
-        [[100., 100.], [100., 400.]],
-        [[510., 510.], [510., 510.]],
-        */
-        [[30., 11.], [20., 11.]],
-        [[48., 29.], [58., 29.]],
+    let arguments: [[[f64; 2]; 2]; 3] = [
+        [[0., 0.], [0., 64.]],
+        [[128., 128.], [128. + 64., 128. + 64.]],
+        [[511., 511.], [511. - 64., 511.]],
     ];
+
+    let couples: Vec<[point::Point; 2]> = arguments
+        .iter()
+        .map(|[source, target]| {
+            [
+                point::Point::new(source[0], source[1]),
+                point::Point::new(target[0], target[1]),
+            ]
+        })
+        .collect();
 
     let mut imgbuf: image::ImageBuffer<image::Rgba<u8>, _> = ImageBuffer::new(dim.0, dim.1);
 
-    for (x, y, pixel) in imgbuf.enumerate_pixels_mut() {
-        let point: Point<f64> = [x as f64, y as f64];
+    imgbuf.enumerate_pixels_mut().for_each(|(x, y, pixel)| {
+        let point = point::Point::new(x as f64, y as f64);
 
-        let weights: Vec<f64> = arguments
+        let weights: Vec<f64> = couples
             .iter()
-            .map(|[source, _]| {
-                let weight = (source[0] - point[0]).powf(2.) + (source[1] - point[1]).powf(2.);
-                if weight < 1. {
-                    return 1.;
-                };
-                return 1. / weight;
-            })
+            .map(|[_, target]| (1. / point.distance(target).powf(2.)).min(1.))
             .collect();
-
-        let delta: Point<f64> =
-            arguments
-                .iter()
-                .enumerate()
-                .fold([0., 0.], |delta, (idx, [source, target])| {
-                    map_point(|axis| delta[axis] + (source[axis] - target[axis]) * weights[idx])
-                });
-
         let weight_sum: f64 = weights.iter().sum();
-        let normalized_delta = map_point(|axis| delta[axis] / weight_sum);
-        let result: Point<f64> = map_point(|axis| (normalized_delta[axis] + point[axis]));
 
-        if result[0] < dim.0 as f64
-            && result[0] >= 0.
-            && result[1] < dim.1 as f64
-            && result[1] >= 0.
-        {
-            let prev_pixel = ref_img.get_pixel(result[0] as u32, result[1] as u32);
+        let delta: point::Point = couples.iter().enumerate().fold(
+            point::Point::new(0., 0.),
+            |delta, (idx, [source, target])| delta + (source - target) * weights[idx],
+        );
+
+        let normalized_delta = delta * (1. / weight_sum);
+        let result = point + normalized_delta;
+
+        let bounds = point::Point::new(dim.0 as f64, dim.1 as f64);
+        if result.inside_bounds(&bounds) {
+            let prev_pixel = ref_img.get_pixel(result.x as u32, result.y as u32);
             *pixel = prev_pixel;
         }
-    }
+    });
 
-    imgbuf.save("./data/output.jpg").unwrap();
+    imgbuf.save("./data/output.png").unwrap();
     println!("dimensions {}", dim.0);
 }
