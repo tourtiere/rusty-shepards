@@ -35,7 +35,9 @@ fn extract_commandline<'a>() -> ArgMatches<'a> {
         .get_matches()
 }
 
-fn extract_points(argument: &str) -> Vec<(point::Point, point::Point)> {
+type Couple = (point::Point, point::Point);
+
+fn extract_points(argument: &str) -> Vec<Couple> {
     let re = regex::Regex::new(r"[ \t]+").unwrap();
     let points: Vec<point::Point> = re
         .split(argument)
@@ -48,18 +50,28 @@ fn extract_points(argument: &str) -> Vec<(point::Point, point::Point)> {
             point::Point::new(x as f64, y as f64)
         })
         .collect();
-    let mut couples: Vec<(point::Point, point::Point)> = Vec::new();
+    let mut couples: Vec<Couple> = Vec::new();
     points.iter().enumerate().for_each(|(idx, _)| {
         if idx % 2 == 1 {
             couples.push((points[idx - 1], points[idx]));
         }
     });
-    return couples;
+    couples
+}
+
+fn classic_shepards(point: &point::Point, couples: &Vec<Couple>) -> point::Point {
+    let (delta, weight_sum): (point::Point, f64) = couples.iter().fold(
+        (point::Point::new(0., 0.), 0_f64),
+        |(delta, weight_sum), (source, target)| {
+            let weight = (1. / point.distance(&target).powf(2.)).min(1.);
+            (delta + (source - target) * weight, weight_sum + weight)
+        },
+    );
+    point + &(delta * (1. / weight_sum))
 }
 
 fn main() {
     let matches = extract_commandline();
-
     let input_path = matches.value_of("INPUT").unwrap();
     let output_path = matches.value_of("OUTPUT").unwrap();
     let points_raw = matches.value_of("POINTS").unwrap();
@@ -73,17 +85,7 @@ fn main() {
 
     imgbuf.enumerate_pixels_mut().for_each(|(x, y, pixel)| {
         let point = point::Point::new(x as f64, y as f64);
-
-        let (delta, weight_sum): (point::Point, f64) = couples.iter().fold(
-            (point::Point::new(0., 0.), 0_f64),
-            |(delta, weight_sum), (source, target)| {
-                let weight = (1. / point.distance(&target).powf(2.)).min(1.);
-                (delta + (source - target) * weight, weight_sum + weight)
-            },
-        );
-
-        let target_point = point + delta * (1. / weight_sum);
-
+        let target_point = classic_shepards(&point, &couples);
         let bounds = point::Point::new(dim.0 as f64, dim.1 as f64);
         if !target_point.inside_bounds(&bounds) {
             return;
