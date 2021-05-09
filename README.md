@@ -15,5 +15,4 @@ shepards input.png output.png --points '128,128 256,256 0,0 0,0 512,512 512,512'
 
 | input.png 	| output.png       	|
 |------------	|------------------	|
-|![output](https://user-images.githubusercontent.com/56520994/117526560-0e028980-af94-11eb-9672-f2eb299164d3.png)|![output](https://user-images.githubusercontent.com/56520994/117526570-1d81d280-af94-11eb-83de-dc862731acf1.png)|
-
+|![output](https://user-images.githubusercontent.com/56520994/117581302-1ceb5800-b0ca-11eb-9439-3bad5c4f5950.png)|![output](https://user-images.githubusercontent.com/56520994/117526570-1d81d280-af94-11eb-83de-dc862731acf1.png)|
